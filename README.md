@@ -106,3 +106,54 @@ class Server 进行了修改
         |-- command.cpp
         |-- main.cpp
     |-- CMakeLists.txt
+
+
+
+## v0.4-module4 **RESP Protocol Compatibilityl** 
+
+todo: 使服务器兼容 Redis 的 RESP（REdis 序列化协议），以便它可以与 redis-cli 交互。
+
+- 解析传入的客户端数据以提取命令和参数，处理多行格式和部分数据（由于非阻塞 I/O）。
+
+- 根据 RESP 格式响应（例如，+OK\r\n，\$5\r\nvalue\r\n，$-1\r\n）
+
+
+### 细节
+class Command 进行了修改
+- 修改了处理流程，接受一个 std::string_view 和一个 size_t& consumed 参数，允许部分缓冲区解析和跟踪已消耗的字节。
+
+- 添加了 parseResp 函数来解析 RESP 数组，原先解析返回的 tokens 作为std::vector\<std::string_view> 引用参数传入。
+
+
+class Server 进行了修改
+- 更新了 handleClientEvent，使其使用客户端的缓冲区调用 Command::process，并跟踪已消耗的字节以处理部分 RESP 消息
+
+### 目录结构
+    mini-redis
+    |-- include/
+        |-- server.hpp
+        |-- store.hpp
+        |-- command.hpp
+    |-- src/
+        |--server.cp
+        |-- store.cpp
+        |-- command.cpp
+        |-- main.cpp
+    |-- CMakeLists.txt
+
+
+### 测试
+```bash
+redis-cli -h 127.0.0.1 -p 6379
+SET mykey hello
+OK
+GET mykey
+"hello"
+GET unknown
+(nil)
+
+Comm
+(error) ERR unknown command 'Comm'
+SET mykey
+(error) ERR wrong number of arguments for 'SET' command
+```

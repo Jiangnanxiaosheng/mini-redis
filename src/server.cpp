@@ -143,15 +143,17 @@ void Server::handleClientEvent(int client_fd, uint32_t events) {
             buffer[bytes_read] = '\0';
             client.buffer += buffer;
 
-            // 处理完整命令（以\r\n分隔）
-            size_t pos;
-            while ((pos = client.buffer.find("\r\n")) != std::string::npos) {
-                // 提取完整命令
-                std::string command = client.buffer.substr(0, pos);
-                client.buffer.erase(0, pos + 2);  // 移除已处理命令
-
-                // 处理命令并将响应添加到响应缓冲区
-                client.response += Command::process(command, store_);
+            // 处理 RESP 信息
+            size_t consumed = 0;
+            while (consumed < client.buffer.size()) {
+                size_t bytes_consumed = 0;
+                std::string response = Command::process(client.buffer, bytes_consumed, store_);
+                if (bytes_consumed == 0) {
+                    break;
+                }
+                client.buffer.erase(0, bytes_consumed);
+                client.response += response;
+                consumed += bytes_consumed;
             }
         }
     }
