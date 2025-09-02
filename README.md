@@ -161,9 +161,9 @@ SET mykey
 
 ## v0.5-module5 **AOF Persistence** 
 todo: 添加仅追加文件（AOF）持久化功能，以确保数据在服务器重启时能够持久保存
-- 命令立即或定期附加到文件以平衡性能和耐用性
+- 将SET命令立即附加到文件
 
-- 启动时，服务器读取 AOF 文件并重新执行命令以重建内存存储。
+- 启动时，服务器读取 AOF 文件并重新执行命令以重建内存存储。 （读取整个文件为连续 buffer，然后逐步解析 RESP 序列）
 
 ### 细节
 class Store 进行了修改
@@ -189,3 +189,18 @@ class Server 进行了修改
 
 
 ### 测试
+```bash
+redis-cli -h 127.0.0.1 -p 6379
+SET key1 value1
+OK
+SET key2 value2
+OK
+
+====== 重启 server 后 ======
+
+redis-cli -h 127.0.0.1 -p 6379
+GET key1
+"value1"
+GET key2
+"value2"
+```
