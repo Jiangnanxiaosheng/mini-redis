@@ -2,24 +2,24 @@
 
 #include <filesystem>
 #include <iostream>
+#include <iterator>
 
 #include "command.hpp"
 Store::Store(const std::string& aof_file) : aof_file_(aof_file) {
     if (std::filesystem::exists(aof_file)) {
         replayAof();
-        std::cout << "replay end...\n";
     }
 
-    aof_.open(aof_file, std::ios::app);
+    aof_.open(aof_file, std::ios::app | std::ios::binary);
     if (!aof_.is_open()) {
         throw std::runtime_error("Failed to open AOF file: " + aof_file);
     }
 
-    std::cout << "da ying...\n";
+    std::cout << "print persistent data...\n";
     for (auto x : data_) {
-        std::cout << x.first << " " << x.second;
+        std::cout << x.first << " " << x.second << "\n";
     }
-    std::cout << "da ying end...\n";
+    std::cout << "print persistent data...\n";
 }
 
 Store::~Store() {
@@ -57,26 +57,45 @@ void Store::logCommand(const std::vector<std::string_view>& command) {
 }
 
 void Store::replayAof() {
-    std::ifstream file(aof_file_);
+    std::ifstream file(aof_file_, std::ios::binary);  // 修正：使用 binary 模式打开
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open AOF file for replay: " + aof_file_);
     }
 
-    std::string buffer;
-    std::string line;
-    while (std::getline(file, line)) {
-        buffer += line + "\r\n";
+    // std::string buffer;
+    // std::string line;
+    // while (std::getline(file, line)) {
+    //     buffer += line + "\r\n";
+    //     size_t consumed = 0;
+    //     while (consumed < buffer.size()) {
+    //         size_t bytes_consumed = 0;
+    //         std::string response = Command::process(buffer, bytes_consumed, *this);
+    //         if (bytes_consumed == 0) {
+    //             break;
+    //         }
+    //         buffer.erase(0, bytes_consumed);
+    //     }
+    // }
+
+    // 修正：一次性读取整个文件到 buffer，确保连续字节流
+    std::string buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+
+    // 逐步解析 buffer 中的 RESP 消息
+    size_t offset = 0;
+    while (offset < buffer.size()) {
         size_t consumed = 0;
-        while (consumed < buffer.size()) {
-            size_t bytes_consumed = 0;
-            std::string response = Command::process(buffer, bytes_consumed, *this);
-            if (bytes_consumed == 0) {
-                break;
-            }
-            buffer.erase(0, bytes_consumed);
+        // 调用 process 解析当前 offset 开始的 RESP 命令（忽略 response，因为 replay 只重建 store）
+        Command::process(std::string_view(buffer).substr(offset), consumed, *this);
+        if (consumed == 0) {
+            // 错误处理：如果无法消耗字节，记录日志并跳出（防止无限循环）
+            std::cerr << "Error replaying AOF at offset " << offset
+                      << ": invalid or incomplete RESP message\n";
+            break;
         }
+        offset += consumed;
     }
-    std::cout << "replayAof\n";
+
+    std::cout << "AOF replay completed successfully\n";
 
     file.close();
 }
