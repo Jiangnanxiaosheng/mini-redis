@@ -157,3 +157,35 @@ Comm
 SET mykey
 (error) ERR wrong number of arguments for 'SET' command
 ```
+
+
+## v0.5-module5 **AOF Persistence** 
+todo: 添加仅追加文件（AOF）持久化功能，以确保数据在服务器重启时能够持久保存
+- 命令立即或定期附加到文件以平衡性能和耐用性
+
+- 启动时，服务器读取 AOF 文件并重新执行命令以重建内存存储。
+
+### 细节
+class Store 进行了修改
+- 添加了 aof_file_ 来存储 AOF 文件路径、 aof_ ( std::ofstream ) 用于日志记录，以及方法 logCommand 和 replayAof
+    - logCommand 将命令写入 RESP 数组并刷新到磁盘
+    - replayAof 读取 AOF 文件，使用 Command::process 解析 RESP 命令，并重建存储。
+
+class Server 进行了修改 
+- 修改构造函数以接受用于 Store 初始化的 AOF 文件路径
+
+### 目录结构
+    mini-redis
+    |-- include/
+        |-- server.hpp
+        |-- store.hpp
+        |-- command.hpp
+    |-- src/
+        |--server.cp
+        |-- store.cpp
+        |-- command.cpp
+        |-- main.cpp
+    |-- CMakeLists.txt
+
+
+### 测试

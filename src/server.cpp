@@ -8,7 +8,7 @@
 
 #include <iostream>
 
-Server::Server(int port) {
+Server::Server(int port, const std::string& aof_file) : store_(aof_file) {
     server_fd_ = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd_ < 0) {
         throw std::runtime_error("Failed to create socket");

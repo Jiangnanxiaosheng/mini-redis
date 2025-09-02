@@ -10,7 +10,7 @@
 
 class Server {
 public:
-    Server(int port);
+    Server(int port, const std::string& aof_file);
     ~Server();
     void run();
 
