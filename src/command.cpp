@@ -125,11 +125,26 @@ namespace {
         return "$" + std::to_string(value.size()) + "\r\n" + value + "\r\n";
     }
 
+    std::string expireCommand(const std::vector<std::string_view>& tokens, Store& store) {
+        if (tokens.size() != 3) {
+            return "-ERR wrong number of arguments for 'EXPIRE' command\r\n";
+        }
+        int seconds;
+        try {
+            seconds = std::stoi(std::string(tokens[2]));
+        } catch (...) {
+            return "-ERR value is not an integer or out of range\r\n";
+        }
+        bool success = store.setExpire(std::string(tokens[1]), seconds);
+        return success ? ":1\r\n" : ":0\r\n";
+    }
+
     // Static registration
     struct CommandInitializer {
         CommandInitializer() {
             Command::registerCommand("SET", setCommand);
             Command::registerCommand("GET", getCommand);
+            Command::registerCommand("EXPIRE", expireCommand);
         }
     } initializer;
 }

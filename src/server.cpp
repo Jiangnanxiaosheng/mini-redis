@@ -65,7 +65,8 @@ Server::~Server() {
 void Server::run() {
     epoll_event events[MAX_EVENTS];
     while (true) {
-        int nfds = epoll_wait(epoll_fd_, events, MAX_EVENTS, -1);
+        // 采用带超时时间的 epoll_wait，定期检查过期键，防止长时间阻塞
+        int nfds = epoll_wait(epoll_fd_, events, MAX_EVENTS, EPOLL_TIMEOUT_MS);
         for (int i = 0; i < nfds; ++i) {
             int fd = events[i].data.fd;
             if (fd == server_fd_) {
@@ -73,6 +74,13 @@ void Server::run() {
             } else {
                 handleClientEvent(fd, events[i].events);  // 处理客户端事件
             }
+        }
+
+        // 定期清理过期键
+        auto now = std::chrono::system_clock::now();
+        if (now - last_cleanup_ >= CLEANUP_INTERVAL) {
+            store_.cleanupExpiredKeys();
+            last_cleanup_ = now;
         }
     }
 }
@@ -86,6 +94,7 @@ void Server::setNonBlocking(int fd) {
         throw std::runtime_error("Failed to set non-blocking");
     }
 }
+
 void Server::handleNewConnection() {
     while (true) {
         int client_fd = accept(server_fd_, nullptr, nullptr);

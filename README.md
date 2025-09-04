@@ -204,3 +204,60 @@ GET key1
 GET key2
 "value2"
 ```
+
+## v0.6-module6 **Key Expiration(TTL)** 
+todo: 为自动过期键添加对生存时间（TTL）的支持。
+
+- 添加 EXPIRE 命令来为密钥设置 TTL，并与模块 4 命令注册表和模块 5 AOF 日志记录集成。
+
+### 细节
+class Store 进行了修改
+- 添加了 expirations_ map 来存储密钥过期时间戳。
+- 添加了 setExpire 来设置 TTL 和 cleanupExpiredKeys 以进行定期清理。
+- 添加了 cleanupExpiredKeys 以从 data_ 和 expirations_ 中删除过期的密钥。
+
+
+class Command 进行了修改
+
+- 添加了 expireCommand 来处理 EXPIRE 命令，解析 TTL 并调用 store.setExpire
+
+
+class Server进行了修改
+- 添加了 last_cleanup_ 和 CLEANUP_INTERVAL 以进行定期清理
+
+
+### 目录结构
+    mini-redis
+    |-- include/
+        |-- server.hpp
+        |-- store.hpp
+        |-- command.hpp
+    |-- src/
+        |--server.cp
+        |-- store.cpp
+        |-- command.cpp
+        |-- main.cpp
+    |-- CMakeLists.txt
+
+
+### 测试
+```bash
+redis-cli -h 127.0.0.1 -p 6379
+SET key1 value1
+EXPIRE key1 5
+GET key1  # Before 5 seconds
+"value1"
+# Wait 6 seconds
+GET key1
+(nil)  # Lazy deletion
+
+========== 测试持久性 ===========
+
+SET key2 value2
+EXPIRE key2 3600
+# Stop and restart server
+
+redis-cli -h 127.0.0.1 -p 6379
+GET key2
+"value2"  # Should persist with TTL
+```

@@ -15,11 +15,11 @@ Store::Store(const std::string& aof_file) : aof_file_(aof_file) {
         throw std::runtime_error("Failed to open AOF file: " + aof_file);
     }
 
-    std::cout << "print persistent data...\n";
-    for (auto x : data_) {
-        std::cout << x.first << " " << x.second << "\n";
-    }
-    std::cout << "print persistent data...\n";
+    // std::cout << "print persistent data...\n";
+    // for (auto x : data_) {
+    //     std::cout << x.first << " " << x.second << "\n";
+    // }
+    // std::cout << "print persistent data...\n";
 }
 
 Store::~Store() {
@@ -37,11 +37,43 @@ void Store::set(const std::string& key, const std::string& value) {
 }
 
 std::string Store::get(const std::string& key) const {
-    auto it = data_.find(key);
-    if (it != data_.end()) {
-        return it->second;
+    auto it = expirations_.find(key);
+    if (it != expirations_.end()) {
+        if (std::chrono::system_clock::now() >= it->second) {
+            return "";  // Key has expired
+        }
+    }
+    auto data_it = data_.find(key);
+    if (data_it != data_.end()) {
+        return data_it->second;
     }
     return "";  // Return empty string for missing keys
+}
+
+bool Store::setExpire(const std::string& key, int seconds) {
+    if (seconds <= 0 || data_.find(key) == data_.end()) {
+        return false;  // 无效的过期时间或键不存在
+    }
+
+    auto expire_time = std::chrono::system_clock::now() + std::chrono::seconds(seconds);
+    expirations_[key] = expire_time;
+
+    // Log EXPIRE command in RESP format
+    std::vector<std::string_view> command = {"EXPIRE", key, std::to_string(seconds)};
+    logCommand(command);
+    return true;
+}
+
+void Store::cleanupExpiredKeys() {
+    auto now = std::chrono::system_clock::now();
+    for (auto it = expirations_.begin(); it != expirations_.end();) {
+        if (now >= it->second) {
+            data_.erase(it->first);
+            it = expirations_.erase(it);
+        } else {
+            ++it;
+        }
+    }
 }
 
 void Store::logCommand(const std::vector<std::string_view>& command) {
@@ -95,7 +127,7 @@ void Store::replayAof() {
         offset += consumed;
     }
 
-    std::cout << "AOF replay completed successfully\n";
+    // std::cout << "AOF replay completed successfully\n";
 
     file.close();
 }

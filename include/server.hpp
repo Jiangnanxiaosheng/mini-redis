@@ -10,6 +10,8 @@
 
 class Server {
 public:
+    using time_point = std::chrono::system_clock::time_point;
+
     Server(int port, const std::string& aof_file);
     ~Server();
     void run();
@@ -32,4 +34,9 @@ private:
     Store store_;
     std::unordered_map<int, Client> clients_;
     static constexpr int MAX_EVENTS{128};
+
+    time_point last_cleanup_;
+    static constexpr std::chrono::seconds CLEANUP_INTERVAL{10};
+
+    static constexpr int EPOLL_TIMEOUT_MS = 1000;
 };
