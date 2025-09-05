@@ -156,7 +156,8 @@ void Server::handleClientEvent(int client_fd, uint32_t events) {
             size_t consumed = 0;
             while (consumed < client.buffer.size()) {
                 size_t bytes_consumed = 0;
-                std::string response = Command::process(client.buffer, bytes_consumed, store_);
+                std::string response =
+                    Command::process(client.buffer, bytes_consumed, store_, client);
                 if (bytes_consumed == 0) {
                     break;
                 }

@@ -116,8 +116,9 @@ void Store::replayAof() {
     size_t offset = 0;
     while (offset < buffer.size()) {
         size_t consumed = 0;
+        Client dummy_client;  // New: Create a dummy Client for AOF replay
         // 调用 process 解析当前 offset 开始的 RESP 命令（忽略 response，因为 replay 只重建 store）
-        Command::process(std::string_view(buffer).substr(offset), consumed, *this);
+        Command::process(std::string_view(buffer).substr(offset), consumed, *this, dummy_client);
         if (consumed == 0) {
             // 错误处理：如果无法消耗字节，记录日志并跳出（防止无限循环）
             std::cerr << "Error replaying AOF at offset " << offset

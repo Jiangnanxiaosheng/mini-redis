@@ -2,14 +2,21 @@
 #include <functional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
+#include <vector>
 
+#include "client.hpp"
 #include "store.hpp"
+
+class Server;
 
 class Command {
 public:
-    using Handler = std::function<std::string(std::vector<std::string_view>, Store&)>;
+    using Handler =
+        std::function<std::string(const std::vector<std::string_view>&, Store&, Client&)>;
 
-    static std::string process(std::string_view buffer, size_t& consumed, Store& store);
+    static std::string process(std::string_view buffer, size_t& consumed, Store& store,
+                               Client& client);
 
     static void registerCommand(std::string_view name, Handler handler);
 

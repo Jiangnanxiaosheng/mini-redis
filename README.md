@@ -261,3 +261,65 @@ redis-cli -h 127.0.0.1 -p 6379
 GET key2
 "value2"  # Should persist with TTL
 ```
+
+## v0.7-module7 **Atomic Transactions**
+todo: 支持 Redis 风格的原子命令执行事务。
+- 实现 MULTI、EXEC 和 DISCARD 命令。
+- 确保分组命令的原子性。
+
+### 细节
+将 Client 结构体从 Server 中移出，放入单独的头文件，防止后续循环依赖，新增事务状态、事务队列
+
+
+class Server 进行了修改
+- 向客户端结构添加事务状态和命令队列，修改 handleClientEvent 以在事务期间对命令进行排队。
+
+
+Class Command 进行了修改
+- 添加 MULTI 、 EXEC 和 DISCARD 命令，更新流程以处理事务排队。
+
+class Store 进行了修改
+- 修改 Command::process 的调用
+
+
+### 目录结构
+    mini-redis
+    |-- include/
+        |-- server.hpp
+        |-- client.hpp
+        |-- store.hpp
+        |-- command.hpp
+    |-- src/
+        |--server.cp
+        |-- store.cpp
+        |-- command.cpp
+        |-- main.cpp
+    |-- CMakeLists.txt
+
+
+### 测试
+```bash
+redis-cli -h 127.0.0.1 -p 6379
+MULTI
+OK
+SET key1 value1
+QUEUED
+EXPIRE key1 10
+QUEUED
+GET key1
+QUEUED
+EXEC
+1) OK
+2) (integer) 1
+3) "value1"
+DISCARD  # Without MULTI
+(error) ERR DISCARD without MULTI
+MULTI
+OK
+SET key2 value2
+QUEUED
+DISCARD
+OK
+GET key2
+(nil)
+```
