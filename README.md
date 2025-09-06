@@ -323,3 +323,27 @@ OK
 GET key2
 (nil)
 ```
+
+## v0.8-module8 **Command Management System**
+todo: 将命令组织成一个模块化、可扩展的系统。
+
+
+### 细节
+class Command 进行了修改
+- 添加了具有纯虚拟执行方法的抽象 Command 类。
+- 引入 CommandFactory 单例来管理命令注册和创建
+- 更新 Command::process 以使用工厂并分派到命令对象。
+
+### 目录结构
+    mini-redis
+    |-- include/
+        |-- server.hpp
+        |-- client.hpp
+        |-- store.hpp
+        |-- command.hpp
+    |-- src/
+        |--server.cp
+        |-- store.cpp
+        |-- command.cpp
+        |-- main.cpp
+    |-- CMakeLists.txt
