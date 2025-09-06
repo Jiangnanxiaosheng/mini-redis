@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <unordered_map>
@@ -12,16 +13,18 @@ class Server;
 
 class Command {
 public:
-    using Handler =
-        std::function<std::string(const std::vector<std::string_view>&, Store&, Client&)>;
+    virtual ~Command() = default;
+    virtual std::string execute(const std::vector<std::string_view>& tokens, Store& store,
+                                Client& client) = 0;
+
+    // using Handler = std::function<std::string(const std::vector<std::string_view>&, Store&,
+    // Client&)>;
 
     static std::string process(std::string_view buffer, size_t& consumed, Store& store,
                                Client& client);
 
-    static void registerCommand(std::string_view name, Handler handler);
-
-private:
-    static std::unordered_map<std::string_view, Handler> handlers_;
+    static void registerCommand(std::string_view name,
+                                std::function<std::unique_ptr<Command>()> creator);
 
     /**
      * 解析 Redis 序列化协议 (RESP) 格式的数组
@@ -33,4 +36,16 @@ private:
      */
     static bool parseResp(std::string_view buffer, size_t& consumed,
                           std::vector<std::string_view>& result);
+};
+
+class CommandFactory {
+public:
+    static CommandFactory& getInstance();
+    void registerCommand(std::string_view name, std::function<std::unique_ptr<Command>()> creator);
+    std::unique_ptr<Command> createCommand(std::string_view name) const;
+
+private:
+    CommandFactory() = default;
+
+    std::unordered_map<std::string_view, std::function<std::unique_ptr<Command>()>> creators_;
 };
