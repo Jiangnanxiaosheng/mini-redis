@@ -347,3 +347,26 @@ class Command 进行了修改
         |-- command.cpp
         |-- main.cpp
     |-- CMakeLists.txt
+
+
+## v0.9-module9 **Buffer Management**
+todo: 处理 TCP 的粘包问题。
+
+### 细节
+添加了一个带有固定尺寸缓冲区的新的Ringbuffer类（有待测试）
+
+### 目录结构
+    mini-redis
+    |-- include/
+        |-- server.hpp
+        |-- client.hpp
+        |-- store.hpp
+        |-- command.hpp
+        |-- ring_buffer.hpp
+    |-- src/
+        |--server.cp
+        |-- store.cpp
+        |-- command.cpp
+        |-- ring_buffer.cpp
+        |-- main.cpp
+    |-- CMakeLists.txt
