@@ -11,6 +11,7 @@ add_executable(mini-redis
     src/server.cpp 
     src/store.cpp 
     src/command.cpp 
+    src/ring_buffer.cpp
 )
 
 # Enable warnings
