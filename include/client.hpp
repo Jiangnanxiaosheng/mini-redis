@@ -2,8 +2,10 @@
 #include <string>
 #include <vector>
 
+#include "ring_buffer.hpp"
+
 struct Client {
-    std::string buffer;
+    RingBuffer buffer;
     std::string response;
     bool has_pending_write{false};
 

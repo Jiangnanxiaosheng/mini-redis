@@ -8,6 +8,8 @@
 
 #include <iostream>
 
+#include "ring_buffer.hpp"
+
 Server::Server(int port, const std::string& aof_file) : store_(aof_file) {
     server_fd_ = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd_ < 0) {
@@ -149,22 +151,27 @@ void Server::handleClientEvent(int client_fd, uint32_t events) {
                 closeClient(client_fd);
                 return;
             }
-            buffer[bytes_read] = '\0';
-            client.buffer += buffer;
+            // buffer[bytes_read] = '\0';
+            // client.buffer += buffer;
+            client.buffer.write(buffer, bytes_read);
 
             // 处理 RESP 信息
             size_t consumed = 0;
             while (consumed < client.buffer.size()) {
                 size_t bytes_consumed = 0;
+                // std::string response = Command::process(client.buffer, bytes_consumed, store_,
+                // client);
                 std::string response =
-                    Command::process(client.buffer, bytes_consumed, store_, client);
+                    Command::process(client.buffer.peek(consumed, client.buffer.size() - consumed),
+                                     bytes_consumed, store_, client);
                 if (bytes_consumed == 0) {
                     break;
                 }
-                client.buffer.erase(0, bytes_consumed);
+                // client.buffer.erase(0, bytes_consumed);
                 client.response += response;
                 consumed += bytes_consumed;
             }
+            client.buffer.consume(consumed);
         }
     }
 
