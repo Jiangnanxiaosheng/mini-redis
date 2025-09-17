@@ -38,16 +38,33 @@ void Store::set(const std::string& key, const std::string& value) {
 
 std::string Store::get(const std::string& key) const {
     auto it = expirations_.find(key);
-    if (it != expirations_.end()) {
-        if (std::chrono::system_clock::now() >= it->second) {
-            return "";  // Key has expired
-        }
+    if (it != expirations_.end() && std::chrono::system_clock::now() >= it->second) {
+        return "";
     }
     auto data_it = data_.find(key);
-    if (data_it != data_.end()) {
-        return data_it->second;
+    if (data_it != data_.end() && std::holds_alternative<std::string>(data_it->second)) {
+        return std::get<std::string>(data_it->second);
     }
     return "";  // Return empty string for missing keys
+}
+
+void Store::vecSet(const std::string& key, const std::vector<float>& vec) {
+    data_[key] = vec;  // 存储向量
+    std::string vec_data(reinterpret_cast<const char*>(vec.data()), vec.size() * sizeof(float));
+    std::vector<std::string_view> command = {"VECSET", key, vec_data};
+    logCommand(command);  // 持久化
+}
+
+std::vector<float> Store::vecGet(const std::string& key) const {
+    auto it = expirations_.find(key);
+    if (it != expirations_.end() && std::chrono::system_clock::now() >= it->second) {
+        return {};
+    }
+    auto data_it = data_.find(key);
+    if (data_it != data_.end() && std::holds_alternative<std::vector<float>>(data_it->second)) {
+        return std::get<std::vector<float>>(data_it->second);
+    }
+    return {};
 }
 
 bool Store::setExpire(const std::string& key, int seconds) {
@@ -131,4 +148,17 @@ void Store::replayAof() {
     // std::cout << "AOF replay completed successfully\n";
 
     file.close();
+}
+
+void Store::forEachVector(
+    const std::function<void(const std::string&, const std::vector<float>&)>& callback) const {
+    auto now = std::chrono::system_clock::now();
+    for (const auto& [key, value] : data_) {
+        if (std::holds_alternative<std::vector<float>>(value)) {
+            auto it = expirations_.find(key);
+            if (it == expirations_.end() || now < it->second) {  // 未过期
+                callback(key, std::get<std::vector<float>>(value));
+            }
+        }
+    }
 }

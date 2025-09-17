@@ -49,3 +49,10 @@ private:
 
     std::unordered_map<std::string_view, std::function<std::unique_ptr<Command>()>> creators_;
 };
+
+// 新增：向量命令
+class VectorCommand : public Command {
+public:
+    std::string execute(const std::vector<std::string_view>& tokens, Store& store,
+                        Client& client) override;
+};

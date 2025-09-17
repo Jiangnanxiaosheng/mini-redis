@@ -1,5 +1,9 @@
 #include "command.hpp"
 
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <numeric>
 #include <sstream>
 
 /*
@@ -185,6 +189,66 @@ std::unique_ptr<Command> CommandFactory::createCommand(std::string_view name) co
     return it->second();
 }
 
+std::string VectorCommand::execute(const std::vector<std::string_view>& tokens, Store& store,
+                                   Client&) {
+    if (tokens.size() < 2)
+        return "-ERR wrong number of arguments\r\n";
+
+    if (tokens[0] == "VECSET") {
+        if (tokens.size() != 3)
+            return "-ERR VECSET needs key and vector\r\n";
+        std::string_view vec_data = tokens[2];
+        if (vec_data.size() % sizeof(float) != 0)
+            return "-ERR invalid vector data\r\n";
+        std::span<const float> vec(reinterpret_cast<const float*>(vec_data.data()),
+                                   vec_data.size() / sizeof(float));
+        store.vecSet(std::string(tokens[1]), std::vector<float>(vec.begin(), vec.end()));
+        return "+OK\r\n";
+    }
+    if (tokens[0] == "VECSIM") {
+        if (tokens.size() != 3)
+            return "-ERR VECSIM needs query vector and top_k\r\n";
+        size_t top_k;
+        try {
+            top_k = std::stoi(std::string(tokens[2]));
+        } catch (...) {
+            return "-ERR top_k must be integer\r\n";
+        }
+        std::string_view vec_data = tokens[1];
+        if (vec_data.size() % sizeof(float) != 0)
+            return "-ERR invalid vector data\r\n";
+        std::span<const float> query(reinterpret_cast<const float*>(vec_data.data()),
+                                     vec_data.size() / sizeof(float));
+
+        auto cosine_sim = [](std::span<const float> a, std::span<const float> b) {
+            if (a.size() != b.size())
+                return 0.0;
+            double dot = std::inner_product(a.begin(), a.end(), b.begin(), 0.0);
+            double na = std::sqrt(std::inner_product(a.begin(), a.end(), a.begin(), 0.0));
+            double nb = std::sqrt(std::inner_product(b.begin(), b.end(), b.begin(), 0.0));
+            return dot / (na * nb + 1e-8);
+        };
+
+        std::vector<std::pair<std::string, double>> results;
+        store.forEachVector([&](const std::string& key, const std::vector<float>& vec) {
+            double sim = cosine_sim(query, vec);
+            if (sim > 0.6)
+                results.emplace_back(key, sim);
+        });
+
+        std::partial_sort(results.begin(), results.begin() + std::min(top_k, results.size()),
+                          results.end(), [](auto& a, auto& b) { return a.second > b.second; });
+
+        std::string resp = "*" + std::to_string(std::min(top_k, results.size())) + "\r\n";
+        for (size_t i = 0; i < top_k && i < results.size(); ++i) {
+            resp +=
+                "$" + std::to_string(results[i].first.size()) + "\r\n" + results[i].first + "\r\n";
+        }
+        return resp;
+    }
+    return "-ERR unknown vector command\r\n";
+}
+
 namespace {
     class SetCommand : public Command {
     public:
@@ -270,6 +334,9 @@ namespace {
             Command::registerCommand("EXEC", []() { return std::make_unique<ExecCommand>(); });
             Command::registerCommand("DISCARD",
                                      []() { return std::make_unique<DiscardCommand>(); });
+
+            Command::registerCommand("VECSET", []() { return std::make_unique<VectorCommand>(); });
+            Command::registerCommand("VECSIM", []() { return std::make_unique<VectorCommand>(); });
         }
     } initializer;
 
